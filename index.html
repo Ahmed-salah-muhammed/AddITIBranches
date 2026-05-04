@@ -1,0 +1,1735 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ITI Branches — Map Viewer</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --iti-red: #dc2626;
+        --iti-red-light: #ef4444;
+        --iti-red-dark: #b91c1c;
+        --iti-red-fade: #fca5a5;
+        --iti-red-glow: rgba(220, 38, 38, 0.18);
+        --iti-red-subtle: rgba(220, 38, 38, 0.06);
+        --gradient-primary: linear-gradient(135deg, #dc2626, #f87171, #fecaca);
+        --gradient-soft: linear-gradient(135deg, #fef2f2, #fee2e2, #fff);
+        --gradient-sidebar: linear-gradient(180deg, #141414, #1a1a1a, #1f1f1f);
+        --gradient-glow: radial-gradient(
+          ellipse at 30% 0%,
+          rgba(220, 38, 38, 0.12),
+          transparent 60%
+        );
+        --sidebar-bg: #141414;
+        --sidebar-card: #1e1e1e;
+        --sidebar-border: #2a2a2a;
+        --text-primary: #f5f5f5;
+        --text-secondary: #a3a3a3;
+        --text-muted: #737373;
+        --popup-bg: #fff;
+        --popup-text: #1f1f1f;
+        --success: #22c55e;
+        --error: #ef4444;
+        --warning: #f59e0b;
+      }
+
+      body {
+        font-family: "Inter", sans-serif;
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+        background: #f5f5f5;
+      }
+
+      /* ── Sidebar ─────────────────────────────────── */
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 380px;
+        height: 100vh;
+        background: var(--gradient-sidebar);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5);
+      }
+      .sidebar::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 220px;
+        background: var(--gradient-glow);
+        pointer-events: none;
+      }
+      .sidebar.collapsed {
+        transform: translateX(-380px);
+      }
+
+      .sidebar-toggle {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 1001;
+        width: 44px;
+        height: 44px;
+        background: var(--sidebar-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 10px;
+        color: var(--text-primary);
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      }
+      .sidebar-toggle:hover {
+        background: var(--iti-red);
+        border-color: var(--iti-red);
+        box-shadow: 0 4px 20px var(--iti-red-glow);
+      }
+      .sidebar:not(.collapsed) ~ .sidebar-toggle {
+        left: 396px;
+      }
+
+      .sidebar-header {
+        position: relative;
+        padding: 16px 20px 14px;
+        border-bottom: 1px solid var(--sidebar-border);
+        flex-shrink: 0;
+      }
+      .logo-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .logo-img {
+        height: 40px;
+        width: auto;
+        filter: brightness(0) invert(1);
+        opacity: 0.95;
+      }
+      .logo-divider {
+        width: 1px;
+        height: 24px;
+        background: linear-gradient(
+          to bottom,
+          transparent,
+          var(--sidebar-border),
+          transparent
+        );
+      }
+      .logo-label h1 {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+      .logo-label span {
+        font-size: 10px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .search-box {
+        position: relative;
+      }
+      .search-box input {
+        width: 100%;
+        padding: 9px 12px 9px 34px;
+        background: var(--sidebar-card);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+        font-family: inherit;
+        outline: none;
+        transition: all 0.2s;
+      }
+      .search-box input::placeholder {
+        color: var(--text-muted);
+      }
+      .search-box input:focus {
+        border-color: var(--iti-red);
+        box-shadow: 0 0 0 3px var(--iti-red-glow);
+      }
+      .search-box i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 13px;
+      }
+
+      /* ── Toolbar ─────────────────────────────────── */
+      .toolbar {
+        position: relative;
+        display: flex;
+        gap: 6px;
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--sidebar-border);
+        flex-shrink: 0;
+      }
+      .toolbar-btn {
+        padding: 6px 10px;
+        background: var(--sidebar-card);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 7px;
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-family: inherit;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+      .toolbar-btn:hover {
+        border-color: var(--iti-red);
+        color: var(--iti-red-light);
+        background: rgba(220, 38, 38, 0.06);
+      }
+      .toolbar-btn i {
+        font-size: 11px;
+      }
+      .toolbar-spacer {
+        flex: 1;
+      }
+
+      /* ── Stats + Chart ───────────────────────────── */
+      .stats-section {
+        position: relative;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--sidebar-border);
+        flex-shrink: 0;
+      }
+      .stats-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .stat-chip {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 9px;
+        background: var(--sidebar-card);
+        border-radius: 6px;
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+      .stat-chip .stat-value {
+        font-weight: 700;
+        color: var(--iti-red-light);
+      }
+
+      .mini-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+        height: 40px;
+        padding: 0 2px;
+      }
+      .mini-bar {
+        flex: 1;
+        min-width: 0;
+        background: var(--iti-red);
+        border-radius: 3px 3px 0 0;
+        transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        cursor: pointer;
+        opacity: 0.7;
+      }
+      .mini-bar:hover {
+        opacity: 1;
+      }
+      .mini-bar .bar-tip {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #333;
+        color: #fff;
+        font-size: 10px;
+        padding: 3px 7px;
+        border-radius: 4px;
+        white-space: nowrap;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .mini-bar .bar-tip::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 4px solid transparent;
+        border-top-color: #333;
+      }
+      .mini-bar:hover .bar-tip {
+        display: block;
+      }
+      .chart-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        text-align: center;
+      }
+
+      /* ── Branch List ─────────────────────────────── */
+      .branch-list {
+        position: relative;
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 12px;
+      }
+      .branch-list::-webkit-scrollbar {
+        width: 4px;
+      }
+      .branch-list::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .branch-list::-webkit-scrollbar-thumb {
+        background: var(--sidebar-border);
+        border-radius: 2px;
+      }
+
+      .branch-card {
+        background: var(--sidebar-card);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: all 0.25s;
+      }
+      .branch-card:hover {
+        border-color: var(--iti-red);
+        box-shadow:
+          0 0 0 1px var(--iti-red),
+          0 4px 20px var(--iti-red-glow);
+        transform: translateY(-1px);
+        background: linear-gradient(
+          135deg,
+          var(--sidebar-card),
+          rgba(220, 38, 38, 0.04)
+        );
+      }
+      .branch-card .card-top {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+      .branch-card .card-icon {
+        width: 30px;
+        height: 30px;
+        background: var(--gradient-primary);
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .branch-card .card-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
+        line-height: 1.2;
+      }
+      .branch-card .card-id {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .branch-card .card-tracks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        margin-bottom: 6px;
+      }
+      .branch-card .track-tag {
+        padding: 1px 7px;
+        background: var(--iti-red-subtle);
+        border: 1px solid rgba(220, 38, 38, 0.15);
+        border-radius: 4px;
+        font-size: 10px;
+        color: var(--iti-red-light);
+        font-weight: 500;
+      }
+      .branch-card .card-coords {
+        font-size: 10px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .branch-card .card-coords i {
+        font-size: 9px;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-muted);
+      }
+      .empty-state i {
+        font-size: 36px;
+        margin-bottom: 12px;
+        opacity: 0.3;
+      }
+      .empty-state p {
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      /* ── Sidebar Footer ──────────────────────────── */
+      .sidebar-footer {
+        position: relative;
+        padding: 12px 20px;
+        border-top: 1px solid var(--sidebar-border);
+        flex-shrink: 0;
+      }
+      .btn-add-branch {
+        width: 100%;
+        padding: 10px;
+        background: var(--gradient-primary);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.3s;
+        text-decoration: none;
+      }
+      .btn-login {
+        width: 100%;
+        padding: 10px;
+        background: var(--sidebar-card);
+        color: var(--text-primary);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.3s;
+        text-decoration: none;
+      }
+      .btn-login:hover {
+        background: var(--sidebar-border);
+        border-color: var(--iti-red);
+      }
+      .btn-logout {
+        margin-top: 8px;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-muted);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 11px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s;
+      }
+      .btn-logout:hover {
+        background: rgba(220, 38, 38, 0.1);
+        color: var(--iti-red-light);
+      }
+      .btn-add-branch:hover {
+        box-shadow: 0 6px 24px var(--iti-red-glow);
+        transform: translateY(-1px);
+      }
+
+      /* ── Map ─────────────────────────────────────── */
+      #map {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1;
+      }
+
+      /* ── Cluster Override ────────────────────────── */
+      .marker-cluster-small {
+        background: rgba(220, 38, 38, 0.15) !important;
+      }
+      .marker-cluster-small div {
+        background: rgba(220, 38, 38, 0.3) !important;
+        color: #fff !important;
+        font-weight: 700 !important;
+        font-size: 12px !important;
+      }
+      .marker-cluster-medium {
+        background: rgba(220, 38, 38, 0.2) !important;
+      }
+      .marker-cluster-medium div {
+        background: rgba(220, 38, 38, 0.45) !important;
+        color: #fff !important;
+        font-weight: 700 !important;
+        font-size: 13px !important;
+      }
+      .marker-cluster-large {
+        background: rgba(220, 38, 38, 0.25) !important;
+      }
+      .marker-cluster-large div {
+        background: rgba(220, 38, 38, 0.6) !important;
+        color: #fff !important;
+        font-weight: 700 !important;
+        font-size: 14px !important;
+      }
+      .marker-cluster {
+        box-shadow: 0 2px 12px rgba(220, 38, 38, 0.2) !important;
+      }
+
+      /* ── Custom Marker ───────────────────────────── */
+      .custom-marker {
+        background: none !important;
+        border: none !important;
+      }
+      .marker-pin {
+        width: 36px;
+        height: 44px;
+        position: relative;
+      }
+      .marker-pin .pin-body {
+        width: 36px;
+        height: 36px;
+        background: var(--iti-red);
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 16px rgba(220, 38, 38, 0.4);
+      }
+      .marker-pin .pin-body i {
+        transform: rotate(45deg);
+        color: #fff;
+        font-size: 14px;
+      }
+      .marker-pin .pin-shadow {
+        width: 14px;
+        height: 5px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 50%;
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        filter: blur(1px);
+      }
+      .click-marker {
+        background: none !important;
+        border: none !important;
+      }
+      .click-pin {
+        width: 24px;
+        height: 24px;
+        background: var(--iti-red);
+        border: 3px solid #fff;
+        border-radius: 50%;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+        animation: clickPulse 1.5s ease-out infinite;
+      }
+      @keyframes clickPulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5);
+        }
+        70% {
+          box-shadow: 0 0 0 16px rgba(220, 38, 38, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+        }
+      }
+
+      /* ── Popup ───────────────────────────────────── */
+      .leaflet-popup-content-wrapper {
+        border-radius: 14px !important;
+        box-shadow: 0 8px 36px rgba(0, 0, 0, 0.12) !important;
+        padding: 0 !important;
+        overflow: hidden;
+      }
+      .leaflet-popup-content {
+        margin: 0 !important;
+        width: 270px !important;
+      }
+      .leaflet-popup-tip {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+      }
+      .popup-content {
+        font-family: "Inter", sans-serif;
+      }
+      .popup-header {
+        background: var(--gradient-primary);
+        padding: 14px 16px;
+        color: #fff;
+      }
+      .popup-header h3 {
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 1px;
+      }
+      .popup-header span {
+        font-size: 11px;
+        opacity: 0.85;
+      }
+      .popup-body {
+        padding: 12px 16px;
+      }
+      .popup-body .popup-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: var(--popup-text);
+      }
+      .popup-body .popup-row:last-child {
+        margin-bottom: 0;
+      }
+      .popup-body .popup-row i {
+        width: 16px;
+        text-align: center;
+        color: var(--iti-red);
+        margin-top: 1px;
+        flex-shrink: 0;
+      }
+      .popup-body .popup-row .popup-label {
+        font-weight: 600;
+        min-width: 50px;
+      }
+      .popup-tracks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+      }
+      .popup-track-tag {
+        padding: 2px 7px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 4px;
+        font-size: 10px;
+        color: #dc2626;
+        font-weight: 500;
+      }
+      .popup-actions {
+        border-top: 1px solid #fef2f2;
+        padding: 8px 16px;
+        display: flex;
+        gap: 5px;
+      }
+      .popup-btn {
+        flex: 1;
+        padding: 6px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        transition: all 0.2s;
+      }
+      .popup-btn-primary {
+        background: var(--iti-red);
+        color: #fff;
+      }
+      .popup-btn-primary:hover {
+        background: var(--iti-red-dark);
+      }
+      .popup-btn-secondary {
+        background: #f5f5f5;
+        color: #525252;
+      }
+      .popup-btn-secondary:hover {
+        background: #e5e5e5;
+      }
+      .popup-btn-danger {
+        background: #fef2f2;
+        color: #dc2626;
+      }
+      .popup-btn-danger:hover {
+        background: #fee2e2;
+      }
+      .leaflet-popup-close-button {
+        top: 8px !important;
+        right: 10px !important;
+        color: #fff !important;
+        font-size: 22px !important;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+      }
+
+      /* ── Coordinate Bar ──────────────────────────── */
+      .coord-bar {
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 12px;
+        padding: 10px 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 12px;
+        color: #737373;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s;
+      }
+      .coord-bar .coord-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .coord-bar .coord-value {
+        color: #171717;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .coord-bar .divider {
+        width: 1px;
+        height: 20px;
+        background: #e5e5e5;
+      }
+      .coord-bar.hidden {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%) translateY(10px);
+      }
+      .coord-bar .btn-use-coords {
+        padding: 6px 14px;
+        background: var(--gradient-primary);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 11px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.2s;
+      }
+      .coord-bar .btn-use-coords:hover {
+        box-shadow: 0 4px 14px var(--iti-red-glow);
+        transform: translateY(-1px);
+      }
+
+      /* ── Cursor Coords ───────────────────────────── */
+      .cursor-coords {
+        position: fixed;
+        bottom: 28px;
+        right: 16px;
+        z-index: 999;
+        background: rgba(20, 20, 20, 0.85);
+        backdrop-filter: blur(6px);
+        border-radius: 8px;
+        padding: 7px 12px;
+        font-size: 11px;
+        color: #a3a3a3;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      .cursor-coords i {
+        color: var(--iti-red-light);
+        font-size: 10px;
+      }
+      .cursor-coords .cc-val {
+        color: #f5f5f5;
+        font-weight: 500;
+      }
+
+      /* ── Confirm Modal ───────────────────────────── */
+      .confirm-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 10000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .confirm-overlay.visible {
+        display: flex;
+      }
+      .confirm-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 32px;
+        max-width: 380px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        text-align: center;
+        animation: successPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      @keyframes successPop {
+        from {
+          opacity: 0;
+          transform: scale(0.9);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      .confirm-card .confirm-icon {
+        width: 56px;
+        height: 56px;
+        background: #fef2f2;
+        border: 2px solid #fecaca;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 24px;
+        color: var(--iti-red);
+      }
+      .confirm-card h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .confirm-card p {
+        font-size: 13px;
+        color: #737373;
+        margin-bottom: 24px;
+        line-height: 1.5;
+      }
+      .confirm-card .confirm-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .confirm-card .btn-confirm-cancel {
+        flex: 1;
+        padding: 10px;
+        background: #f5f5f5;
+        color: #525252;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .confirm-card .btn-confirm-cancel:hover {
+        background: #e5e5e5;
+      }
+      .confirm-card .btn-confirm-danger {
+        flex: 1;
+        padding: 10px;
+        background: var(--iti-red);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .confirm-card .btn-confirm-danger:hover {
+        background: var(--iti-red-dark);
+      }
+
+      /* ── Toast ───────────────────────────────────── */
+      .toast-container {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .toast {
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 12px;
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: #171717;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        animation: toastIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        max-width: 360px;
+      }
+      .toast.removing {
+        animation: toastOut 0.3s ease forwards;
+      }
+      .toast-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .toast-success .toast-icon {
+        background: #f0fdf4;
+        color: #16a34a;
+      }
+      .toast-error .toast-icon {
+        background: #fef2f2;
+        color: #dc2626;
+      }
+      .toast-info .toast-icon {
+        background: #fef2f2;
+        color: #dc2626;
+      }
+      @keyframes toastIn {
+        from {
+          opacity: 0;
+          transform: translateX(40px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      @keyframes toastOut {
+        from {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateX(40px);
+        }
+      }
+
+      /* ── Loading ─────────────────────────────────── */
+      .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        transition: opacity 0.6s;
+      }
+      .loading-overlay.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .loading-logo {
+        height: 56px;
+        width: auto;
+        filter: brightness(0);
+        opacity: 0.12;
+      }
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #f5f5f5;
+        border-top-color: var(--iti-red);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      .loading-text {
+        color: #a3a3a3;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── Leaflet ─────────────────────────────────── */
+      .leaflet-control-layers {
+        border-radius: 10px !important;
+        border: 1px solid #e5e5e5 !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+      }
+      .leaflet-control-layers-list label {
+        font-family: "Inter", sans-serif !important;
+        font-size: 12px !important;
+      }
+      .leaflet-control-attribution {
+        font-size: 10px !important;
+        background: rgba(255, 255, 255, 0.85) !important;
+        color: #a3a3a3 !important;
+        border-radius: 6px 0 0 0 !important;
+        backdrop-filter: blur(4px);
+      }
+      .leaflet-control-attribution a {
+        color: var(--iti-red) !important;
+      }
+
+      @media (max-width: 768px) {
+        .sidebar {
+          width: 100vw;
+        }
+        .sidebar.collapsed {
+          transform: translateX(-100vw);
+        }
+        .sidebar:not(.collapsed) ~ .sidebar-toggle {
+          left: calc(100vw - 60px);
+        }
+        .coord-bar {
+          bottom: 12px;
+          font-size: 11px;
+          padding: 8px 12px;
+          gap: 8px;
+        }
+        .cursor-coords {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="loading-overlay" id="loadingOverlay">
+      <img
+        src="https://z-cdn-media.chatglm.cn/files/188d4c81-68b4-4998-99e8-15fd95e11e8b.png?auth_key=1877891904-adf6f5e261014573b668da958a85a049-0-c961b7c3839c3a22ad4cfc0084a14ca2"
+        alt="ITI"
+        class="loading-logo"
+      />
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading ITI Branches...</div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Confirm Modal -->
+    <div class="confirm-overlay" id="confirmOverlay">
+      <div class="confirm-card">
+        <div class="confirm-icon"><i class="fas fa-trash-alt"></i></div>
+        <h3>Delete Branch?</h3>
+        <p id="confirmText">
+          This action cannot be undone. The branch will be permanently removed
+          from the database.
+        </p>
+        <div class="confirm-actions">
+          <button class="btn-confirm-cancel" onclick="closeConfirm()">
+            Cancel
+          </button>
+          <button class="btn-confirm-danger" id="btnConfirmDelete">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-row">
+          <img
+            src="https://z-cdn-media.chatglm.cn/files/188d4c81-68b4-4998-99e8-15fd95e11e8b.png?auth_key=1877891904-adf6f5e261014573b668da958a85a049-0-c961b7c3839c3a22ad4cfc0084a14ca2"
+            alt="ITI Logo"
+            class="logo-img"
+          />
+          <div class="logo-divider"></div>
+          <div class="logo-label">
+            <h1>Branches</h1>
+            <span>Map Viewer</span>
+          </div>
+        </div>
+        <div class="search-box">
+          <i class="fas fa-search"></i>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search branches..."
+            autocomplete="off"
+          />
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <button
+          class="toolbar-btn"
+          onclick="exportGeoJSON()"
+          title="Export as GeoJSON file"
+        >
+          <i class="fas fa-download"></i> Export
+        </button>
+        <button
+          class="toolbar-btn"
+          onclick="fitAllBounds()"
+          title="Zoom to fit all branches"
+        >
+          <i class="fas fa-expand"></i> Fit All
+        </button>
+        <div class="toolbar-spacer"></div>
+        <button
+          class="toolbar-btn"
+          onclick="reloadData()"
+          title="Refresh data from server"
+        >
+          <i class="fas fa-sync-alt"></i>
+        </button>
+      </div>
+
+      <!-- Stats + Mini Chart -->
+      <div class="stats-section">
+        <div class="stats-row">
+          <div class="stat-chip">
+            <i class="fas fa-map-marker-alt" style="color: var(--iti-red)"></i>
+            Branches: <span class="stat-value" id="statTotal">—</span>
+          </div>
+          <div class="stat-chip">
+            <i class="fas fa-road" style="color: var(--iti-red)"></i> Tracks:
+            <span class="stat-value" id="statTracks">—</span>
+          </div>
+        </div>
+        <div class="mini-chart" id="miniChart"></div>
+        <div class="chart-label" id="chartLabel">Track distribution</div>
+      </div>
+
+      <div class="branch-list" id="branchList">
+        <div class="empty-state">
+          <i class="fas fa-map-marked-alt"></i>
+          <p>No branches loaded yet.<br />Connecting to database...</p>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <a
+          href="/add-branch-page"
+          class="btn-add-branch"
+          id="btnAddBranch"
+          style="display: none"
+          ><i class="fas fa-plus-circle"></i> Add New Branch</a
+        >
+        <a href="/login" class="btn-login" id="btnLogin">
+          <i class="fas fa-sign-in-alt"></i> Login to Manage
+        </a>
+        <button
+          onclick="logout()"
+          class="btn-logout"
+          id="btnLogout"
+          style="display: none"
+        >
+          <i class="fas fa-sign-out-alt"></i> Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+      <i class="fas fa-bars"></i>
+    </button>
+
+    <div id="map"></div>
+
+    <div class="coord-bar hidden" id="coordBar">
+      <div class="coord-item">
+        <i class="fas fa-crosshairs" style="color: var(--iti-red)"></i
+        ><span>Lng:</span><span class="coord-value" id="coordLng">—</span>
+      </div>
+      <div class="divider"></div>
+      <div class="coord-item">
+        <span>Lat:</span><span class="coord-value" id="coordLat">—</span>
+      </div>
+      <div class="divider"></div>
+      <button class="btn-use-coords" id="btnUseCoords">
+        <i class="fas fa-plus"></i> Add Branch Here
+      </button>
+      <button
+        onclick="clearClickMarker()"
+        style="
+          background: none;
+          border: none;
+          color: #a3a3a3;
+          cursor: pointer;
+          font-size: 14px;
+          padding: 4px;
+        "
+      >
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="cursor-coords" id="cursorCoords">
+      <i class="fas fa-crosshairs"></i>
+      <span class="cc-val" id="ccText">—</span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script>
+      const CONFIG = {
+        center: [30.0444, 31.2357],
+        zoom: 6,
+        minZoom: 3,
+        maxZoom: 19,
+        useGeoServer: true,
+        geoserverWfsUrl:
+          "http://localhost:8080/geoserver/gis/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=gis:iti_branches&outputFormat=application/json&srsname=EPSG:4326",
+        apiBranchesUrl: "/api/branches",
+        apiStatsUrl: "/api/branches/stats",
+      };
+
+      let branches = [];
+      let geojsonCache = null;
+      let clusterGroup = null;
+      let clickMarker = null;
+      let markerLookup = new Map();
+      let clickedCoords = null;
+      let pendingDeleteId = null;
+
+      // ── Map ──────────────────────────────────────────────
+      const map = L.map("map", {
+        center: CONFIG.center,
+        zoom: CONFIG.zoom,
+        minZoom: CONFIG.minZoom,
+        maxZoom: CONFIG.maxZoom,
+        zoomControl: false,
+      });
+      L.control.zoom({ position: "topright" }).addTo(map);
+
+      const basemaps = {
+        OpenStreetMap: L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          { attribution: "&copy; OSM", maxZoom: 19 },
+        ),
+        "CartoDB Positron": L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+          { attribution: "&copy; CartoDB", maxZoom: 19 },
+        ),
+        "CartoDB Dark": L.tileLayer(
+          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+          { attribution: "&copy; CartoDB", maxZoom: 19 },
+        ),
+        "Esri Satellite": L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          { attribution: "&copy; Esri", maxZoom: 18 },
+        ),
+      };
+
+      const egyptProvince = L.tileLayer.wms(
+        "http://localhost:8080/geoserver/gis/wms",
+        {
+          layers: "gis:Egypt_Province",
+          format: "image/png",
+          transparent: true,
+          version: "1.1.0",
+          opacity: 0.3,
+          zIndex: 10,
+          attribution: "GeoServer",
+        },
+      );
+
+      basemaps["CartoDB Dark"].addTo(map);
+      egyptProvince.addTo(map);
+
+      const overlays = {
+        "Egypt Provinces": egyptProvince,
+      };
+
+      L.control.layers(basemaps, overlays, { position: "topright" }).addTo(map);
+
+      // ── Cluster Group ────────────────────────────────────
+      clusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        iconCreateFunction: function (cluster) {
+          const count = cluster.getChildCount();
+          let size = "small";
+          if (count > 20) size = "large";
+          else if (count > 5) size = "medium";
+          return L.divIcon({
+            html: `<div>${count}</div>`,
+            className: `marker-cluster marker-cluster-${size}`,
+            iconSize: L.point(40, 40),
+          });
+        },
+      });
+      map.addLayer(clusterGroup);
+
+      // ── Icons ────────────────────────────────────────────
+      const TRACK_COLOR_MAP = {
+        web: "#3b82f6", // Blue
+        ai: "#a855f7", // Purple
+        gis: "#22c55e", // Green
+        data: "#f97316", // Orange
+        cloud: "#06b6d4", // Cyan
+        cyber: "#ef4444", // Red
+        ui: "#ec4899", // Pink
+        default: "#dc2626", // ITI Red
+      };
+
+      function getTrackColor(trackStr) {
+        if (!trackStr) return TRACK_COLOR_MAP.default;
+        const t = trackStr.toLowerCase();
+        if (t.includes("web")) return TRACK_COLOR_MAP.web;
+        if (t.includes("ai")) return TRACK_COLOR_MAP.ai;
+        if (t.includes("gis")) return TRACK_COLOR_MAP.gis;
+        if (t.includes("data")) return TRACK_COLOR_MAP.data;
+        if (t.includes("cloud")) return TRACK_COLOR_MAP.cloud;
+        if (t.includes("cyber") || t.includes("security"))
+          return TRACK_COLOR_MAP.cyber;
+        if (t.includes("ui") || t.includes("ux")) return TRACK_COLOR_MAP.ui;
+        return TRACK_COLOR_MAP.default;
+      }
+
+      function createBranchIcon(tracks) {
+        const color = getTrackColor(tracks);
+        return L.divIcon({
+          className: "custom-marker",
+          html: `<div class="marker-pin">
+                  <div class="pin-body" style="background: ${color}">
+                    <i class="fas fa-graduation-cap"></i>
+                  </div>
+                  <div class="pin-shadow"></div>
+                 </div>`,
+          iconSize: [36, 48],
+          iconAnchor: [18, 48],
+          popupAnchor: [0, -50],
+        });
+      }
+      function createClickIcon() {
+        return L.divIcon({
+          className: "click-marker",
+          html: '<div class="click-pin"></div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+      }
+
+      // ── Popup ────────────────────────────────────────────
+      function createPopupContent(props) {
+        const tracksHtml = props.tracks
+          ? props.tracks
+              .split(",")
+              .map((t) => `<span class="popup-track-tag">${t.trim()}</span>`)
+              .join("")
+          : '<span style="color:#a3a3a3;font-size:11px">No tracks</span>';
+        const shareUrl = `${location.origin}${location.pathname}#branch-${props.id}`;
+        return `<div class="popup-content">
+        <div class="popup-header"><h3>${esc(props.name || "Unnamed")}</h3><span>ID: ${props.id || "—"}</span></div>
+        <div class="popup-body">
+            <div class="popup-row"><i class="fas fa-map-pin"></i><span class="popup-label">Coords:</span><span>${props.longitude?.toFixed(5) ?? "—"}, ${props.latitude?.toFixed(5) ?? "—"}</span></div>
+            <div class="popup-row"><i class="fas fa-road"></i><span class="popup-label">Tracks:</span><div class="popup-tracks">${tracksHtml}</div></div>
+        </div>
+        <div class="popup-actions">
+            <button class="popup-btn popup-btn-primary" onclick="zoomToCoords(${props.longitude},${props.latitude})"><i class="fas fa-search-plus"></i> Focus</button>
+            <button class="popup-btn popup-btn-secondary" onclick="copyCoords(${props.longitude},${props.latitude})"><i class="fas fa-copy"></i> Copy</button>
+            <button class="popup-btn popup-btn-secondary" onclick="copyText('${shareUrl}')"><i class="fas fa-share-alt"></i> Share</button>
+            <button class="popup-btn popup-btn-danger" onclick="confirmDelete(${props.id},'${esc(props.name || "")}')"><i class="fas fa-trash"></i></button>
+        </div>
+    </div>`;
+      }
+
+      // ── Utils ────────────────────────────────────────────
+      function esc(s) {
+        if (!s) return "";
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+      function normalizeBranch(p) {
+        return {
+          id: p.id ?? p.ID,
+          name: p.Branch ?? p.branch ?? p.name ?? "Unnamed Branch",
+          longitude: parseFloat(p.Longitude ?? p.longitude) || 0,
+          latitude: parseFloat(p.Latitude ?? p.latitude ?? p.Latitude) || 0,
+          tracks: p.tracks ?? p.Tracks ?? p.TRACKS ?? "",
+        };
+      }
+
+      // ── Fetch ────────────────────────────────────────────
+      async function fetchBranches() {
+        try {
+          let geojson;
+          if (CONFIG.useGeoServer) {
+            try {
+              const r = await fetch(CONFIG.geoserverWfsUrl);
+              if (!r.ok) throw 0;
+              geojson = await r.json();
+            } catch (e) {
+              const r = await fetch(CONFIG.apiBranchesUrl);
+              geojson = await r.json();
+            }
+          } else {
+            const r = await fetch(CONFIG.apiBranchesUrl);
+            geojson = await r.json();
+          }
+          geojsonCache = geojson;
+          renderBranches(geojson);
+          fetchStats();
+          checkAuth();
+        } catch (err) {
+          console.error(err);
+          document.getElementById("branchList").innerHTML =
+            '<div class="empty-state"><i class="fas fa-exclamation-triangle" style="color:var(--iti-red)"></i><p>Failed to load branches.</p></div>';
+          hideLoading();
+        }
+      }
+
+      async function fetchStats() {
+        try {
+          const r = await fetch(CONFIG.apiStatsUrl);
+          const data = await r.json();
+          document.getElementById("statTotal").textContent = data.totalBranches;
+          renderMiniChart(data.trackDistribution);
+          const uniqueTracks = data.trackDistribution.length;
+          document.getElementById("statTracks").textContent = uniqueTracks;
+        } catch (e) {
+          /* stats are optional */
+        }
+      }
+
+      // ── Render ───────────────────────────────────────────
+      function renderBranches(geojson) {
+        clusterGroup.clearLayers();
+        markerLookup.clear();
+        branches = [];
+
+        (geojson.features || []).forEach((f) => {
+          const p = normalizeBranch(f.properties);
+          if (!p.longitude && !p.latitude) return;
+          const c = f.geometry?.coordinates || [p.longitude, p.latitude];
+          const ll = [c[1], c[0]];
+          branches.push({ ...p, latLng: ll });
+          const m = L.marker(ll, {
+            icon: createBranchIcon(p.tracks),
+          }).bindPopup(createPopupContent(p), { maxWidth: 290 });
+
+          m.addTo(clusterGroup);
+          markerLookup.set(String(p.id), m);
+        });
+
+        renderBranchList(branches);
+        if (branches.length > 0)
+          map.fitBounds(clusterGroup.getBounds(), {
+            padding: [60, 60],
+            maxZoom: 10,
+          });
+
+        // Deep link
+        const hash = location.hash;
+        if (hash.startsWith("#branch-")) {
+          const id = hash.replace("#branch-", "");
+          const b = branches.find((x) => String(x.id) === String(id));
+          if (b)
+            setTimeout(() => flyToBranch(b.latitude, b.longitude, b.id), 800);
+        }
+
+        hideLoading();
+      }
+
+      function hideLoading() {
+        setTimeout(() => {
+          const o = document.getElementById("loadingOverlay");
+          o.classList.add("fade-out");
+          setTimeout(() => o.remove(), 600);
+        }, 400);
+      }
+
+      function renderBranchList(list) {
+        const c = document.getElementById("branchList");
+        if (!list.length) {
+          c.innerHTML =
+            '<div class="empty-state"><i class="fas fa-search"></i><p>No branches match your search.</p></div>';
+          return;
+        }
+        c.innerHTML = list
+          .map((b) => {
+            const tt = b.tracks
+              ? b.tracks
+                  .split(",")
+                  .map((t) => `<span class="track-tag">${esc(t.trim())}</span>`)
+                  .join("")
+              : "";
+            return `<div class="branch-card" onclick="focusBranch(${b.id})" data-id="${b.id}">
+            <div class="card-top"><div class="card-icon"><i class="fas fa-graduation-cap"></i></div><div><div class="card-name">${esc(b.name || "Unnamed")}</div><div class="card-id">ID: ${b.id ?? "—"}</div></div></div>
+            ${tt ? `<div class="card-tracks">${tt}</div>` : ""}
+            <div class="card-coords"><i class="fas fa-map-pin"></i>${b.longitude?.toFixed(5) ?? "—"}, ${b.latitude?.toFixed(5) ?? "—"}</div>
+        </div>`;
+          })
+          .join("");
+      }
+
+      function renderMiniChart(data) {
+        const container = document.getElementById("miniChart");
+        if (!data || !data.length) {
+          container.innerHTML = "";
+          document.getElementById("chartLabel").textContent = "";
+          return;
+        }
+        const max = Math.max(...data.map((d) => d.count));
+        const total = data.reduce((sum, d) => sum + d.count, 0);
+        container.innerHTML = data
+          .slice(0, 10)
+          .map((d) => {
+            const h = Math.max(4, (d.count / max) * 36);
+            const percentage =
+              total > 0 ? ((d.count / total) * 100).toFixed(1) : 0;
+            const color = getTrackColor(d.track);
+            return `<div class="mini-bar" style="height:${h}px; background:${color}">
+                      <div class="bar-tip">${esc(d.track)}: ${d.count} (${percentage}%)</div>
+                    </div>`;
+          })
+          .join("");
+        document.getElementById("chartLabel").textContent =
+          "Track distribution";
+      }
+
+      // ── Map Events ───────────────────────────────────────
+      map.on("click", (e) => {
+        const { lng, lat } = e.latlng;
+        clickedCoords = { lng, lat };
+        if (clickMarker) map.removeLayer(clickMarker);
+        clickMarker = L.marker([lat, lng], { icon: createClickIcon() }).addTo(
+          map,
+        );
+        document.getElementById("coordLng").textContent = lng.toFixed(6);
+        document.getElementById("coordLat").textContent = lat.toFixed(6);
+        document.getElementById("coordBar").classList.remove("hidden");
+      });
+
+      map.on("mousemove", (e) => {
+        document.getElementById("ccText").textContent =
+          `${e.latlng.lng.toFixed(5)}, ${e.latlng.lat.toFixed(5)}`;
+      });
+
+      function clearClickMarker() {
+        if (clickMarker) {
+          map.removeLayer(clickMarker);
+          clickMarker = null;
+        }
+        clickedCoords = null;
+        document.getElementById("coordBar").classList.add("hidden");
+      }
+
+      document.getElementById("btnUseCoords").addEventListener("click", () => {
+        if (!clickedCoords) return;
+        location.href = `/add-branch-page?lng=${clickedCoords.lng}&lat=${clickedCoords.lat}`;
+      });
+
+      function focusBranch(id) {
+        const b = branches.find((x) => String(x.id) === String(id));
+        if (b) flyToBranch(b.latitude, b.longitude, id);
+      }
+
+      function flyToBranch(lat, lng, id) {
+        map.flyTo([lat, lng], 14, { duration: 1.2 });
+        if (id) {
+          const m = markerLookup.get(String(id));
+          if (m) setTimeout(() => m.openPopup(), 1200);
+        }
+      }
+      function zoomToCoords(lng, lat) {
+        map.flyTo([lat, lng], 17, { duration: 1 });
+      }
+      function copyCoords(lng, lat) {
+        copyText(`${lng.toFixed(6)}, ${lat.toFixed(6)}`);
+      }
+      function copyText(text) {
+        navigator.clipboard
+          .writeText(text)
+          .then(() => showToast("Copied to clipboard!", "success"))
+          .catch(() => showToast("Failed to copy", "error"));
+      }
+
+      function fitAllBounds() {
+        if (branches.length)
+          map.fitBounds(clusterGroup.getBounds(), {
+            padding: [60, 60],
+            maxZoom: 12,
+          });
+      }
+
+      // ── Export ───────────────────────────────────────────
+      function exportGeoJSON() {
+        if (!geojsonCache || !geojsonCache.features.length) {
+          showToast("No data to export", "error");
+          return;
+        }
+        const blob = new Blob([JSON.stringify(geojsonCache, null, 2)], {
+          type: "application/geo+json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `iti_branches_${new Date().toISOString().slice(0, 10)}.geojson`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(
+          `Exported ${geojsonCache.features.length} branches as GeoJSON`,
+          "success",
+        );
+      }
+
+      // ── Delete ───────────────────────────────────────────
+      function confirmDelete(id, name) {
+        pendingDeleteId = id;
+        document.getElementById("confirmText").textContent =
+          `Delete "${name}"? This cannot be undone.`;
+        document.getElementById("confirmOverlay").classList.add("visible");
+      }
+      function closeConfirm() {
+        pendingDeleteId = null;
+        document.getElementById("confirmOverlay").classList.remove("visible");
+      }
+
+      document
+        .getElementById("btnConfirmDelete")
+        .addEventListener("click", async () => {
+          if (!pendingDeleteId) return;
+          const id = pendingDeleteId;
+          closeConfirm();
+          try {
+            const r = await fetch(`/api/branches/${id}`, { method: "DELETE" });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error);
+            showToast(data.message, "success");
+            reloadData();
+          } catch (e) {
+            showToast("Delete failed: " + e.message, "error");
+          }
+        });
+
+      function reloadData() {
+        showToast("Refreshing data...", "info");
+        fetchBranches();
+        renderBranches(geojson);
+      }
+
+      // ── Search ───────────────────────────────────────────
+      document
+        .getElementById("searchInput")
+        .addEventListener("input", function () {
+          const q = this.value.toLowerCase().trim();
+          if (!q) {
+            renderBranchList(branches);
+            return;
+          }
+          renderBranchList(
+            branches.filter(
+              (b) =>
+                (b.name || "").toLowerCase().includes(q) ||
+                (b.tracks || "").toLowerCase().includes(q) ||
+                String(b.id).includes(q),
+            ),
+          );
+        });
+
+      // ── Sidebar Toggle ──────────────────────────────────
+      const sidebar = document.getElementById("sidebar"),
+        toggleBtn = document.getElementById("sidebarToggle");
+      toggleBtn.addEventListener("click", () => {
+        sidebar.classList.toggle("collapsed");
+        toggleBtn.querySelector("i").className = sidebar.classList.contains(
+          "collapsed",
+        )
+          ? "fas fa-bars"
+          : "fas fa-chevron-left";
+      });
+
+      // ── Toast ────────────────────────────────────────────
+      function showToast(msg, type = "info") {
+        const c = document.getElementById("toastContainer"),
+          icons = {
+            success: "fa-check",
+            error: "fa-exclamation",
+            info: "fa-info",
+          };
+        const t = document.createElement("div");
+        t.className = `toast toast-${type}`;
+        t.innerHTML = `<div class="toast-icon"><i class="fas ${icons[type] || icons.info}"></i></div><span>${esc(msg)}</span>`;
+        c.appendChild(t);
+        setTimeout(() => {
+          t.classList.add("removing");
+          setTimeout(() => t.remove(), 300);
+        }, 4000);
+      }
+
+      // ── Hash change for deep linking ────────────────────
+      window.addEventListener("hashchange", () => {
+        const hash = location.hash;
+        if (hash.startsWith("#branch-")) {
+          const id = hash.replace("#branch-", "");
+          const b = branches.find((x) => String(x.id) === String(id));
+          if (b) flyToBranch(b.latitude, b.longitude);
+        }
+      });
+
+      // ── Init ─────────────────────────────────────────────
+      document.addEventListener("DOMContentLoaded", () => {
+        fetchBranches();
+      });
+    </script>
+  </body>
+</html>

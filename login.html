@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ITI — Login</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      :root {
+        --iti-red: #dc2626;
+        --iti-red-light: #ef4444;
+        --iti-red-dark: #b91c1c;
+        --iti-red-glow: rgba(220, 38, 38, 0.15);
+        --gradient-primary: linear-gradient(135deg, #dc2626, #f87171, #fecaca);
+        --gradient-soft: linear-gradient(135deg, #fef2f2, #fee2e2, #fff);
+        --gradient-page: linear-gradient(
+          160deg,
+          #fff,
+          #fef2f2 30%,
+          #fff7ed 60%,
+          #fff
+        );
+      }
+      body {
+        font-family: "Inter", sans-serif;
+        background: var(--gradient-page);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        width: 500px;
+        height: 500px;
+        top: -120px;
+        right: -100px;
+        background: radial-gradient(
+          circle,
+          rgba(220, 38, 38, 0.06),
+          transparent 70%
+        );
+        border-radius: 50%;
+        pointer-events: none;
+      }
+      .login-card {
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 20px;
+        padding: 48px 40px;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.06);
+      }
+      .login-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        margin-bottom: 32px;
+      }
+      .login-logo img {
+        height: 48px;
+        filter: brightness(0);
+        opacity: 0.85;
+      }
+      .login-logo .divider {
+        width: 1px;
+        height: 32px;
+        background: #e5e5e5;
+      }
+      .login-logo h1 {
+        font-size: 20px;
+        font-weight: 800;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .login-subtitle {
+        text-align: center;
+        color: #737373;
+        font-size: 13px;
+        margin-bottom: 28px;
+      }
+      .form-group {
+        margin-bottom: 18px;
+      }
+      .form-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #171717;
+      }
+      .form-group .input-wrap {
+        position: relative;
+      }
+      .form-group .input-wrap i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #a3a3a3;
+        font-size: 13px;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 11px 14px 11px 38px;
+        border: 1.5px solid #e5e5e5;
+        border-radius: 10px;
+        font-size: 14px;
+        font-family: inherit;
+        outline: none;
+        transition: all 0.2s;
+        background: #fafafa;
+      }
+      .form-group input:focus {
+        border-color: var(--iti-red);
+        box-shadow: 0 0 0 3px var(--iti-red-glow);
+        background: #fff;
+      }
+      .error-msg {
+        font-size: 11px;
+        color: var(--iti-red);
+        margin-top: 5px;
+        display: none;
+      }
+      .error-msg.visible {
+        display: block;
+      }
+      .btn-login {
+        width: 100%;
+        padding: 13px;
+        background: var(--gradient-primary);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .btn-login:hover:not(:disabled) {
+        box-shadow: 0 8px 28px var(--iti-red-glow);
+        transform: translateY(-2px);
+      }
+      .btn-login:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .btn-login .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        display: none;
+      }
+      .btn-login.loading .spinner {
+        display: block;
+      }
+      .btn-login.loading .btn-text {
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .login-footer {
+        text-align: center;
+        margin-top: 20px;
+      }
+      .login-footer a {
+        color: var(--iti-red);
+        font-size: 13px;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .login-footer a:hover {
+        text-decoration: underline;
+      }
+      .toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 12px;
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        z-index: 9999;
+        animation: toastIn 0.4s;
+      }
+      .toast.error {
+        border-color: #fecaca;
+      }
+      .toast i {
+        color: var(--iti-red);
+      }
+      @keyframes toastIn {
+        from {
+          opacity: 0;
+          transform: translateX(40px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-card">
+      <div class="login-logo">
+        <img
+          src="https://z-cdn-media.chatglm.cn/files/188d4c81-68b4-4998-99e8-15fd95e11e8b.png?auth_key=1877891904-adf6f5e261014573b668da958a85a049-0-c961b7c3839c3a22ad4cfc0084a14ca2"
+          alt="ITI"
+        />
+        <div class="divider"></div>
+        <h1>Login</h1>
+      </div>
+      <p class="login-subtitle">Sign in to manage ITI branches</p>
+      <div id="errorToast" class="toast error" style="display: none">
+        <i class="fas fa-exclamation-circle"></i><span id="errorText"></span>
+      </div>
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <label>Username</label>
+          <div class="input-wrap">
+            <i class="fas fa-user"></i
+            ><input
+              type="text"
+              id="username"
+              placeholder="admin"
+              required
+              autocomplete="username"
+            />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-wrap">
+            <i class="fas fa-lock"></i
+            ><input
+              type="password"
+              id="password"
+              placeholder="••••••••"
+              required
+              autocomplete="current-password"
+            />
+          </div>
+          <div class="error-msg" id="loginError">
+            Invalid username or password
+          </div>
+        </div>
+        <button type="submit" class="btn-login" id="btnLogin">
+          <span class="btn-text"
+            ><i class="fas fa-sign-in-alt"></i> Sign In</span
+          >
+          <div class="spinner"></div>
+        </button>
+      </form>
+      <div class="login-footer"><a href="/">← Back to Map Viewer</a></div>
+    </div>
+    <script>
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          document.getElementById("loginError").classList.remove("visible");
+          document.getElementById("errorToast").style.display = "none";
+          const btn = document.getElementById("btnLogin");
+          btn.classList.add("loading");
+          btn.disabled = true;
+          try {
+            const r = await fetch("/api/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                username: document.getElementById("username").value.trim(),
+                password: document.getElementById("password").value,
+              }),
+            });
+            const data = await r.json();
+            if (!r.ok) {
+              document.getElementById("loginError").textContent =
+                data.error || "Login failed";
+              document.getElementById("loginError").classList.add("visible");
+              return;
+            }
+            localStorage.setItem("iti_auth", "true");
+            // Redirect to where they came from, or map
+            const from =
+              new URLSearchParams(location.search).get("from") || "/";
+            location.href = from;
+          } catch (err) {
+            document.getElementById("errorText").textContent = "Network error";
+            document.getElementById("errorToast").style.display = "flex";
+          } finally {
+            btn.classList.remove("loading");
+            btn.disabled = false;
+          }
+        });
+    </script>
+  </body>
+</html>
